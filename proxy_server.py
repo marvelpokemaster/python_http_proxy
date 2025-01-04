@@ -128,7 +128,7 @@ def start_proxy_server():
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    server.bind(('127.0.0.1', port))
+    server.bind(('127.0.0.3', port))
 
     # accept up to 10 simultaneous connections
 
