@@ -1,11 +1,84 @@
 import socket
+
 import threading
-port = 8888
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(('127.0.0.2', port))
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-print(f"Proxy server listening on port {port}...")
-# listen for incoming requests
+
+def handle_client_request(client_socket):
+
+    print("Received request:\n")
+
+    # read the data sent by the client in the request
+
+    request = b''
+
+    client_socket.setblocking(False)
+
+    while True:
+
+        try:
+
+            # receive data from web server
+
+            data = client_socket.recv(1024)
+
+            request = request + data
+
+            # Receive data from the original destination server
+
+            print(f"{data.decode('utf-8')}")
+
+        except:
+
+            break
+
+    # extract the webserver's host and port from the request
+
+    host, port = extract_host_port_from_request(request)
+
+    # create a socket to connect to the original destination server
+
+    destination_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # connect to the destination server
+
+    destination_socket.connect((host, port))
+
+    # send the original request
+
+    destination_socket.sendall(request)
+
+    # read the data received from the server
+
+    # once chunk at a time and send it to the client
+
+    print("Received response:\n")
+
+    while True:
+
+        # receive data from web server
+
+        data = destination_socket.recv(1024)
+
+        # Receive data from the original destination server
+
+        print(f"{data.decode('utf-8')}")
+
+        # no more data to send
+
+        if len(data) > 0:
+
+            # send back to the client
+
+            client_socket.sendall(data)
+
+        else:
+
+            break
+
+    # close the sockets
+
+    destination_socket.close()
+
+    client_socket.close()
 
 def extract_host_port_from_request(request):
 
@@ -46,101 +119,37 @@ def extract_host_port_from_request(request):
         host = host_string[:port_pos]
 
     return host, port
-    
-def handle_client_request(client_socket):
-    print("Received request:\n")
 
-    # read the data sent by the client in the request
+def start_proxy_server():
 
-    request = b''
+    port = 8888
 
-    client_socket.setblocking(False)
+    # bind the proxy server to a specific address and port
 
-    while True:
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        try:
+    server.bind(('127.0.0.1', port))
 
-            # receive data from web server
+    # accept up to 10 simultaneous connections
 
-            data = client_socket.recv(1024)
+    server.listen(10)
 
-            request = request + data
+    print(f"Proxy server listening on port {port}...")
 
-            # Receive data from the original destination server
-
-            print(f"{data.decode('utf-8')}")
-
-        except:
-
-            break
-        # create a socket to connect to the original destination server
-
-    destination_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    host, port = extract_host_port_from_request(request)
-    # connect to the destination server
-
-    destination_socket.connect((host, port))
-
-    # send the original request
-
-    destination_socket.sendall(request)
-
-
-    # read the data received from the server
-
-    # once chunk at a time and send it to the client
-
-    print("Received response:\n")
+    # listen for incoming requests
 
     while True:
 
-        # receive data from web server
+        client_socket, addr = server.accept()
 
-        data = destination_socket.recv(1024)
+        print(f"Accepted connection from {addr[0]}:{addr[1]}")
 
-        # Receive data from the original destination server
+        # create a thread to handle the client request
 
-        print(f"{data.decode('utf-8')}")
+        client_handler = threading.Thread(target=handle_client_request, args=(client_socket,))
 
-        # no more data to send
+        client_handler.start()
 
-        if len(data) > 0:
+if __name__ == "__main__":
 
-            # send back to the client
-
-            client_socket.sendall(data)
-
-        else:
-            break
-        # close the sockets
-
-    destination_socket.close()
-
-    client_socket.close()
-
-
-while True:
-
-    client_socket, addr = server.accept()
-
-    print(f"Accepted connection from {addr[0]}:{addr[1]}")
-
-    # create a thread to handle the client request
-
-    client_handler = threading.Thread(target=handle_client_request, args=(client_socket,))
-
-    client_handler.start()
-
-
-
-# GET http://example.com/your-page HTTP/1.1
-
-# Host: example.com:80
-
-# User-Agent: curl/8.4.0
-
-# Accept: */*
-
-# Proxy-Connection: Keep-Alive
-
+    start_proxy_server()
