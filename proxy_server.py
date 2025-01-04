@@ -7,20 +7,47 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print(f"Proxy server listening on port {port}...")
 # listen for incoming requests
 
-while True:
+def extract_host_port_from_request(request):
 
-    client_socket, addr = server.accept()
+    # get the value after the "Host:" string
 
-    print(f"Accepted connection from {addr[0]}:{addr[1]}")
+    host_string_start = request.find(b'Host: ') + len(b'Host: ')
 
-    # create a thread to handle the client request
+    host_string_end = request.find(b'\r\n', host_string_start)
 
-    client_handler = threading.Thread(target=handle_client_request, args=(client_socket,))
+    host_string = request[host_string_start:host_string_end].decode('utf-8')
 
-    client_handler.start()
+    webserver_pos = host_string.find("/")
+
+    if webserver_pos == -1:
+
+        webserver_pos = len(host_string)
+
+    # if there is a specific port
+
+    port_pos = host_string.find(":")
+
+    # no port specified
+
+    if port_pos == -1 or webserver_pos < port_pos:
+
+        # default port
+
+        port = 80
+
+        host = host_string[:webserver_pos]
+
+    else:
+
+        # extract the specific port from the host string
+
+        port = int((host_string[(port_pos + 1):])[:webserver_pos - port_pos - 1])
+
+        host = host_string[:port_pos]
+
+    return host, port
+    
 def handle_client_request(client_socket):
-    host, port = extract_host_port_from_request(request)
-
     print("Received request:\n")
 
     # read the data sent by the client in the request
@@ -50,6 +77,7 @@ def handle_client_request(client_socket):
 
     destination_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+    host, port = extract_host_port_from_request(request)
     # connect to the destination server
 
     destination_socket.connect((host, port))
@@ -91,47 +119,19 @@ def handle_client_request(client_socket):
 
     client_socket.close()
 
-host, port = extract_host_port_from_request(request)
 
-def extract_host_port_from_request(request):
+while True:
 
-    # get the value after the "Host:" string
+    client_socket, addr = server.accept()
 
-    host_string_start = request.find(b'Host: ') + len(b'Host: ')
+    print(f"Accepted connection from {addr[0]}:{addr[1]}")
 
-    host_string_end = request.find(b'\r\n', host_string_start)
+    # create a thread to handle the client request
 
-    host_string = request[host_string_start:host_string_end].decode('utf-8')
+    client_handler = threading.Thread(target=handle_client_request, args=(client_socket,))
 
-    webserver_pos = host_string.find("/")
+    client_handler.start()
 
-    if webserver_pos == -1:
-
-        webserver_pos = len(host_string)
-
-    # if there is a specific port
-
-    port_pos = host_string.find(":")
-
-    # no port specified
-
-    if port_pos == -1 or webserver_pos < port_pos:
-
-        # default port
-
-        port = 80
-
-        host = host_string[:webserver_pos]
-
-    else:
-
-        # extract the specific port from the host string
-
-        port = int((host_string[(port_pos + 1):])[:webserver_pos - port_pos - 1])
-
-        host = host_string[:port_pos]
-
-    return host, port
 
 
 # GET http://example.com/your-page HTTP/1.1
